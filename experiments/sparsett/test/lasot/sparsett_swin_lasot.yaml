@@ -1,0 +1,73 @@
+test:
+  track:
+    exp_name: &TEST_NAME "lasot"
+    exp_save: &TEST_SAVE "work_dir/test/sparsett-swin-fulldata-test"
+    model:
+      task_model:
+        name: "SiamTrack"
+        SiamTrack:
+          in_channels: 384
+          mid_channels: &MID_CHANNELS 256
+          pretrain_model_path: "work_dir/train/sparsett-swin-fulldata-train/epoch-19.pkl"
+      backbone:
+        name: "SwinTransformer"
+        SwinTransformer:
+          embed_dims: 96
+          depths: [ 2, 2, 6, 2 ]
+          num_heads: [ 3, 6, 12, 24 ]
+          out_indices: (2, )
+          window_size: 7
+          mlp_ratio: 4
+          qkv_bias: True
+          qk_scale: None
+          drop_rate: 0.0
+          attn_drop_rate: 0.0
+          drop_path_rate: 0.2
+          patch_norm: True
+          with_cp: False
+          convert_weights: True
+          pretrained: 'models/swin/swin_tiny_patch4_window7_224.pth'
+      neck:
+        name: "TransformerNeck"
+        TransformerNeck:
+          mid_channels_model: *MID_CHANNELS
+          mid_channels_ffn: 2048
+          num_heads: 8
+          num_encoder_layers: 2
+          num_decoder_layers: 2
+          prob_dropout: 0.0
+          f_z_size: 8
+          f_x_size: &TEST_SCORE_SIZE 19
+          top_k: 32
+      task_head:
+        name: "DoubleConvFCBBoxHead"
+        DoubleConvFCBBoxHead:
+          in_channels: 512  # MID_CHANNELS * 2
+          num_convs: 7
+          x_size: &TEST_X_SIZE 289
+          score_size: *TEST_SCORE_SIZE
+          total_stride: &TOTAL_STRIDE 16
+      losses:
+        names: []
+    pipeline:
+      name: "SparseTTTracker"
+      SparseTTTracker:
+        test_lr: 0.95
+        window_influence: 0.21
+        penalty_k: 0.04
+        total_stride: *TOTAL_STRIDE
+        score_size: *TEST_SCORE_SIZE
+        z_size: 127
+        x_size: *TEST_X_SIZE
+        normalize: True
+        norm_mean: [ 123.675, 116.28, 103.53 ]
+        norm_std: [ 58.395, 57.12, 57.375 ]
+        to_rgb: True
+    tester:
+      names: [ "LaSOTTester", ]
+      LaSOTTester:
+        exp_name: *TEST_NAME
+        exp_save: *TEST_SAVE
+        device_num: 8
+        data_root: "datasets/LaSOT"
+        subsets: [ "test" ]  # (train_test|test)
